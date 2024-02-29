@@ -4,167 +4,175 @@
 
 package frc.robot;
 
-import com.ctre.phoenix6.configs.Slot0Configs;
-import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.kinematics.ChassisSpeeds;
-import edu.wpi.first.math.util.Units;
+import edu.wpi.first.wpilibj.Filesystem;
 import edu.wpi.first.wpilibj.TimedRobot;
-import edu.wpi.first.wpilibj.XboxController;
-import edu.wpi.first.wpilibj.util.Color8Bit;
-import frc.robot.CTRSwerve.CANdleConstants;
-import frc.robot.CTRSwerve.CANdleManager;
-import frc.robot.CTRSwerve.CTRSwerveDrivetrain;
-import frc.robot.CTRSwerve.SwerveDriveConstantsCreator;
-import frc.robot.CTRSwerve.SwerveDriveTrainConstants;
-import frc.robot.CTRSwerve.SwerveModuleConstants;
+import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.CommandScheduler;
+import java.io.File;
+import java.io.IOException;
+import swervelib.parser.SwerveParser;
 
 /**
- * The VM is configured to automatically run this class, and to call the functions corresponding to
- * each mode, as described in the TimedRobot documentation. If you change the name of this class or
- * the package after creating this project, you must also update the build.gradle file in the
- * project.
+ * The VM is configured to automatically run this class, and to call the functions corresponding to each mode, as
+ * described in the TimedRobot documentation. If you change the name of this class or the package after creating this
+ * project, you must also update the build.gradle file in the project.
  */
-public class Robot extends TimedRobot {
+public class Robot extends TimedRobot
+{
 
-    SwerveDriveTrainConstants drivetrain =
-            new SwerveDriveTrainConstants().withPigeon2Id(1).withCANbusName("Fred").withTurnKp(5);
+  private static Robot   instance;
+  private        Command m_autonomousCommand;
 
-    Slot0Configs steerGains = new Slot0Configs();
-    Slot0Configs driveGains = new Slot0Configs();
+  private RobotContainer m_robotContainer;
 
+  private Timer disabledTimer;
+
+  public Robot()
+  {
+    instance = this;
+  }
+
+  public static Robot getInstance()
+  {
+    return instance;
+  }
+
+  /**
+   * This function is run when the robot is first started up and should be used for any initialization code.
+   */
+  @Override
+  public void robotInit()
+  {
+    // Instantiate our RobotContainer.  This will perform all our button bindings, and put our
+    // autonomous chooser on the dashboard.
+    m_robotContainer = new RobotContainer();
+
+    // Create a timer to disable motor brake a few seconds after disable.  This will let the robot stop
+    // immediately when disabled, but then also let it be pushed more 
+    disabledTimer = new Timer();
+  }
+
+  /**
+   * This function is called every 20 ms, no matter the mode. Use this for items like diagnostics that you want ran
+   * during disabled, autonomous, teleoperated and test.
+   *
+   * <p>This runs after the mode specific periodic functions, but before LiveWindow and
+   * SmartDashboard integrated updating.
+   */
+  @Override
+  public void robotPeriodic()
+  {
+    // Runs the Scheduler.  This is responsible for polling buttons, adding newly-scheduled
+    // commands, running already-scheduled commands, removing finished or interrupted commands,
+    // and running subsystem periodic() methods.  This must be called from the robot's periodic
+    // block in order for anything in the Command-based framework to work.
+    CommandScheduler.getInstance().run();
+  }
+
+  /**
+   * This function is called once each time the robot enters Disabled mode.
+   */
+  @Override
+  public void disabledInit()
+  {
+    m_robotContainer.setMotorBrake(true);
+    disabledTimer.reset();
+    disabledTimer.start();
+  }
+
+  @Override
+  public void disabledPeriodic()
+  {
+    if (disabledTimer.hasElapsed(Constants.DrivebaseConstants.WHEEL_LOCK_TIME))
     {
-        steerGains.kP = 30;
-        steerGains.kD = 0.2;
-        driveGains.kP = 1;
+      m_robotContainer.setMotorBrake(false);
+      disabledTimer.stop();
     }
+  }
 
-    SwerveDriveConstantsCreator m_constantsCreator =
-            new SwerveDriveConstantsCreator(
-                    10, // 10:1 ratio for the drive motor
-                    12.8, // 12.8:1 ratio for the steer motor
-                    3, // 3 inch radius for the wheels
-                    17, // Only apply 17 stator amps to prevent slip
-                    steerGains, // Use the specified steer gains
-                    driveGains, // Use the specified drive gains
-                    false // CANcoder not reversed from the steer motor. For WCP Swerve X this should be true.
-                    );
+  /**
+   * This autonomous runs the autonomous command selected by your {@link RobotContainer} class.
+   */
+  @Override
+  public void autonomousInit()
+  {
+    m_robotContainer.setMotorBrake(true);
+    m_autonomousCommand = m_robotContainer.getAutonomousCommand();
 
-    /**
-     * Note: WPI's coordinate system is X forward, Y to the left so make sure all locations are with
-     * respect to this coordinate system
-     *
-     * <p>This particular drive base is 22" x 22"
-     */
-    SwerveModuleConstants frontRight =
-            m_constantsCreator.createModuleConstants(
-                    14, 15, 9, -0.538818, Units.inchesToMeters(22.0 / 2.0), Units.inchesToMeters(-22.0 / 2.0));
-
-    SwerveModuleConstants frontLeft =
-            m_constantsCreator.createModuleConstants(
-                    10, 11, 8, -0.474609, Units.inchesToMeters(22.0 / 2.0), Units.inchesToMeters(22.0 / 2.0));
-    SwerveModuleConstants backRight =
-            m_constantsCreator.createModuleConstants(
-                    4, 17, 6, -0.928467, Units.inchesToMeters(-22.0 / 2.0), Units.inchesToMeters(-22.0 / 2.0));
-    SwerveModuleConstants backLeft =
-            m_constantsCreator.createModuleConstants(
-                    12, 13, 7, -0.756348, Units.inchesToMeters(-22.0 / 2.0), Units.inchesToMeters(22.0 / 2.0));
-
-    CTRSwerveDrivetrain m_drivetrain =
-            new CTRSwerveDrivetrain(drivetrain, frontLeft, frontRight, backLeft, backRight);
-
-    XboxController m_joystick = new XboxController(0);
-
-    CANdleConstants frontCandle = new CANdleConstants().withId(2).withLocationX(1).withLocationY(0);
-    CANdleConstants rightCandle = new CANdleConstants().withId(1).withLocationX(0).withLocationY(-1);
-    CANdleConstants leftCandle = new CANdleConstants().withId(4).withLocationX(0).withLocationY(1);
-    CANdleConstants backCandle = new CANdleConstants().withId(3).withLocationX(-1).withLocationY(0);
-    Color8Bit posX = new Color8Bit(0, 0, 255);
-    Color8Bit posY = new Color8Bit(255, 0, 0);
-    Color8Bit negX = new Color8Bit(255, 255, 255);
-    Color8Bit negY = new Color8Bit(0, 255, 0);
-    CANdleManager m_candleManager =
-            new CANdleManager(
-                    "Fred", posY, posX, negY, negX, frontCandle, leftCandle, rightCandle, backCandle);
-    Rotation2d m_lastTargetAngle = new Rotation2d();
-
-    /**
-     * This function is run when the robot is first started up and should be used for any
-     * initialization code.
-     */
-    @Override
-    public void robotInit() {}
-
-    @Override
-    public void robotPeriodic() {
-        double leftY = -m_joystick.getLeftY();
-        double leftX = m_joystick.getLeftX();
-        double rightX = m_joystick.getRightX();
-        double rightY = -m_joystick.getRightY();
-
-        if (Math.abs(leftY) < 0.1 && Math.abs(leftX) < 0.1) {
-            leftY = 0;
-            leftX = 0;
-        }
-        if (Math.abs(rightX) < 0.1 && Math.abs(rightY) < 0.1) {
-            rightX = 0;
-            rightY = 0;
-        }
-
-        var directions = new ChassisSpeeds();
-        directions.vxMetersPerSecond = leftY * 1;
-        directions.vyMetersPerSecond = leftX * -1;
-        directions.omegaRadiansPerSecond = rightX * -10;
-
-        /* If we're pressing Y, don't move, otherwise do normal movement */
-        if (m_joystick.getYButton()) {
-            m_drivetrain.driveStopMotion();
-        } else {
-            /* If we're fully field centric, we need to be pretty deflected to target an angle */
-            if (Math.abs(rightX) > 0.7 || Math.abs(rightY) > 0.7) {
-                m_lastTargetAngle = new Rotation2d(rightY, -rightX);
-            }
-            m_drivetrain.driveFullyFieldCentric(leftY * 1, leftX * -1, m_lastTargetAngle);
-        }
-
-        if (m_joystick.getAButton()) {
-            m_drivetrain.seedFieldRelative();
-            // Make us target forward now to avoid jumps
-            m_lastTargetAngle = new Rotation2d();
-        }
-
-        m_candleManager.orient(m_drivetrain.getPoseMeters().getRotation());
-        m_candleManager.color();
+    // schedule the autonomous command (example)
+    if (m_autonomousCommand != null)
+    {
+      m_autonomousCommand.schedule();
     }
+  }
 
-    @Override
-    public void autonomousInit() {}
+  /**
+   * This function is called periodically during autonomous.
+   */
+  @Override
+  public void autonomousPeriodic()
+  {
+  }
 
-    @Override
-    public void autonomousPeriodic() {}
-
-    @Override
-    public void teleopInit() {
-        m_lastTargetAngle = m_drivetrain.getPoseMeters().getRotation();
+  @Override
+  public void teleopInit()
+  {
+    // This makes sure that the autonomous stops running when
+    // teleop starts running. If you want the autonomous to
+    // continue until interrupted by another command, remove
+    // this line or comment it out.
+    if (m_autonomousCommand != null)
+    {
+      m_autonomousCommand.cancel();
     }
+    m_robotContainer.setDriveMode();
+    m_robotContainer.setMotorBrake(true);
+  }
 
-    @Override
-    public void teleopPeriodic() {}
+  /**
+   * This function is called periodically during operator control.
+   */
+  @Override
+  public void teleopPeriodic()
+  {
+  }
 
-    @Override
-    public void disabledInit() {}
+  @Override
+  public void testInit()
+  {
+    // Cancels all running commands at the start of test mode.
+    CommandScheduler.getInstance().cancelAll();
+    try
+    {
+      new SwerveParser(new File(Filesystem.getDeployDirectory(), "swerve"));
+    } catch (IOException e)
+    {
+      throw new RuntimeException(e);
+    }
+  }
 
-    @Override
-    public void disabledPeriodic() {}
+  /**
+   * This function is called periodically during test mode.
+   */
+  @Override
+  public void testPeriodic()
+  {
+  }
 
-    @Override
-    public void testInit() {}
+  /**
+   * This function is called once when the robot is first started up.
+   */
+  @Override
+  public void simulationInit()
+  {
+  }
 
-    @Override
-    public void testPeriodic() {}
-
-    @Override
-    public void simulationInit() {}
-
-    @Override
-    public void simulationPeriodic() {}
+  /**
+   * This function is called periodically whilst in simulation.
+   */
+  @Override
+  public void simulationPeriodic()
+  {
+  }
 }
