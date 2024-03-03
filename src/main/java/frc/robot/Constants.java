@@ -4,48 +4,127 @@
 
 package frc.robot;
 
-import com.pathplanner.lib.util.PIDConstants;
-
-import edu.wpi.first.math.geometry.Translation3d;
+import edu.wpi.first.math.geometry.Translation2d;
+import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
+import edu.wpi.first.math.trajectory.TrapezoidProfile;
 import edu.wpi.first.math.util.Units;
-import swervelib.math.Matter;
 
 /**
- * The Constants class provides a convenient place for teams to hold robot-wide numerical or boolean constants. This
- * class should not be used for any other purpose. All constants should be declared globally (i.e. public static). Do
- * not put anything functional in this class.
+ * The Constants class provides a convenient place for teams to hold robot-wide numerical or boolean
+ * constants. This class should not be used for any other purpose. All constants should be declared
+ * globally (i.e. public static). Do not put anything functional in this class.
  *
  * <p>It is advised to statically import this class (or one of its inner classes) wherever the
  * constants are needed, to reduce verbosity.
  */
-public final class Constants
-{
-
-  public static final double ROBOT_MASS = (148 - 20.3) * 0.453592; // 32lbs * kg per pound
-  public static final Matter CHASSIS    = new Matter(new Translation3d(0, 0, Units.inchesToMeters(8)), ROBOT_MASS);
-  public static final double LOOP_TIME  = 0.13; //s, 20ms + 110ms sprk max velocity lag
-
-  public static final class AutonConstants
-  {
-
-    public static final PIDConstants TRANSLATION_PID = new PIDConstants(0.7, 0, 0);
-    public static final PIDConstants ANGLE_PID   = new PIDConstants(0.4, 0, 0.01);
+public final class Constants {
+  public static class OperatorConstants {
+    public static final int kDriverControllerPort = 0;
   }
 
-  public static final class DrivebaseConstants
-  {
+  public static class ModuleConstants{
 
-    // Hold time on motor brakes when disabled
-    public static final double WHEEL_LOCK_TIME = 10; // seconds
+    public static final double kWheelDimeterMeters = Units.inchesToMeters(4);
+    public static final double kDriveMotorGearRatio = 1/5.9462; 
+    public static final double kTurningMotorGearRatio = 1/18.0;
+    public static final double kDriveEncoderRot2Meter = kDriveMotorGearRatio * Math.PI * kWheelDimeterMeters;
+    public static final double kDriveEncoderRPM2MeterPerSec = kTurningMotorGearRatio * 2 * Math.PI;
+    public static final double kTurningEncoderRot2Rad = kDriveEncoderRot2Meter / 60;
+    public static final double kTurningEncoderRPM2RadPerSec = kTurningEncoderRot2Rad / 60;
+
+    public static final double kPTurning = 0.5;
   }
 
-  public static class OperatorConstants
-  {
 
-    // Joystick Deadband
-    public static final double LEFT_X_DEADBAND  = 0.1;
-    public static final double LEFT_Y_DEADBAND  = 0.1;
-    public static final double RIGHT_X_DEADBAND = 0.1;
-    public static final double TURN_CONSTANT    = 6;
+  public static class DriveConstants{
+    public static final double kTrackWidth = Units.inchesToMeters(25);  // Distance betwen right and left wheels
+    public static final double kWheelBase = Units.inchesToMeters(25);   // Distance between front and back wheels
+    public static final SwerveDriveKinematics kDriveKinematics = new SwerveDriveKinematics(
+        new Translation2d(kWheelBase / 2, kTrackWidth / 2),
+        new Translation2d(kWheelBase / 2, kTrackWidth / 2),
+        new Translation2d(kWheelBase / 2, kTrackWidth / 2),
+        new Translation2d(kWheelBase / 2, kTrackWidth / 2));
+
+    public static final double kPhysicalMaxSpeedMetersPerSecond = 5;
+    public static final double kPhysicalMaxAngularSpeedRadiansPerSecond = 2 * 2 * Math.PI;
+    public static final double kTeleDriveMaxSpeedMetersPerSecond = kPhysicalMaxSpeedMetersPerSecond / 4;
+    public static final double kTeleDriveMaxAngularSpeedRadiansPerSecond = kPhysicalMaxAngularSpeedRadiansPerSecond / 4;
+    public static final double kTeleDriveMaxAccelerationUnitsPerSecond = 3;
+    public static final double kTeleDriveMaxAngularAccelerationUnitsPerSecond = 3;
+    
+
+    
+    // Front Left Module constants
+    public static final int kFrontLeftDriveCanId = 11;
+    public static final int kFrontLeftTurningCanId = 10;
+    public static final boolean kFrontLeftDriveEncoderReversed = false;
+    public static final boolean kFrontLeftTurningEncoderReversed = false;
+    public static final int kFrontLeftAbsoluteEncoderCanId = 8;
+    public static final double kFrontLeftAbsoluteEncoderOffsetRad = 0;
+    public static final boolean kFrontLeftAbsoluteEncoderReversed = false;
+
+    // Rear Left Module constants
+    public static final int kRearLeftDriveCanId = 13;
+    public static final int kRearLeftTurningCanId = 12;
+    public static final boolean kRearLeftDriveEncoderReversed = false;
+    public static final boolean kRearLeftTurningEncoderReversed = false;
+    public static final int kRearLeftAbsoluteEncoderCanId = 7;
+    public static final double kRearLeftAbsoluteEncoderOffsetRad = 0;
+    public static final boolean kRearLeftAbsoluteEncoderReversed = false;
+
+    // Front Right Module constants
+    public static final int kFrontRightDriveCanId = 15;
+    public static final int kFrontRightTurningCanId = 14;
+    public static final boolean kFrontRightDriveEncoderReversed = false;
+    public static final boolean kFrontRightTurningEncoderReversed = false;
+    public static final int kFrontRightAbsoluteEncoderCanId = 9;
+    public static final double kFrontRightAbsoluteEncoderOffsetRad = 0;
+    public static final boolean kFrontRightAbsoluteEncoderReversed = false;
+    
+    // Rear Right Module constants
+    public static final int kRearRightDriveCanId = 17;
+    public static final int kRearRightTurningCanId = 16;
+    public static final boolean kRearRightDriveEncoderReversed = false;
+    public static final boolean kRearRightTurningEncoderReversed = false;
+    public static final int kRearRightAbsoluteEncoderCanId = 6;
+    public static final double kRearRightAbsoluteEncoderOffsetRad = 0;
+    public static final boolean kRearRightAbsoluteEncoderReversed = false;  
+    
+  }
+
+  public static class OIConstants{
+    public static final int kMechanismControllerPort = 0;
+    public static final int kDriverControllerPort = 0;
+    public static final int kDriverYAxis = 1;
+    public static final int kDriverXAxis = 0;
+    public static final int kDriverRotAxis = 4;
+    public static final int kDriverFieldOrientedButtionIndex = 1;
+
+    public static final double kDeadband = 0.05;
+  }
+
+  public static final class AutoConstants {
+    public static final double kMaxSpeedMetersPerSecond = DriveConstants.kPhysicalMaxSpeedMetersPerSecond / 4;
+    public static final double kMaxAngularSpeedRadiansPerSecond = DriveConstants.kPhysicalMaxAngularSpeedRadiansPerSecond / 10;
+    public static final double kMaxAccelerationMetersPerSecondSquared = 3;
+    public static final double kMaxAngularAccelerationRadiansPerSecondSquared = Math.PI / 4;
+    public static final double kPXController = 1.5;
+    public static final double kPYController = 1.5;
+    public static final double kPThetaController = 3;
+
+    public static final TrapezoidProfile.Constraints kThetaControllerConstraints = //
+            new TrapezoidProfile.Constraints(
+                    kMaxAngularSpeedRadiansPerSecond,
+                    kMaxAngularAccelerationRadiansPerSecondSquared);
+}
+  public static final class MechanismConstants{
+    public static final int kShooterMotorRightCanId =  21;
+    public static final int kShooterMotorLeftCanId =  20;
+    public static final int kIntakeMotorFrontCanId =  22;
+    public static final int kIntakeMotorRearCanId =  23;
+    public static final int kClimbMotorLeftCanId =  24;
+    public static final int kClimbMotorRightCanId =  25;
+    public static final int kShooterPivotCanId = 26;
+
   }
 }
