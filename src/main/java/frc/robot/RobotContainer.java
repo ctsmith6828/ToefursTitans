@@ -4,110 +4,185 @@
 
 package frc.robot;
 
-import frc.robot.Constants.OIConstants;
-import frc.robot.Constants.OperatorConstants;
-import frc.robot.commands.IntakeSetCmd;
-import frc.robot.commands.SwerveJoystickCmd;
-import frc.robot.subsystems.ClimbSubsystem;
-import frc.robot.subsystems.IntakeSubsystem;
-import frc.robot.subsystems.SwerveSubsystem;
-
-import java.util.List;
-
-import edu.wpi.first.math.controller.PIDController;
-import edu.wpi.first.math.controller.ProfiledPIDController;
+import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
-import edu.wpi.first.math.trajectory.Trajectory;
-import edu.wpi.first.math.trajectory.TrajectoryConfig;
-import edu.wpi.first.math.trajectory.TrajectoryGenerator;
+import edu.wpi.first.wpilibj.Filesystem;
 import edu.wpi.first.wpilibj.Joystick;
 import edu.wpi.first.wpilibj.PS4Controller;
-import edu.wpi.first.wpilibj.XboxController;
-import edu.wpi.first.wpilibj.PS4Controller.Button;
+import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
-import edu.wpi.first.wpilibj2.command.button.JoystickButton;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
+import frc.robot.Constants.OperatorConstants;
+import frc.robot.Constants.ShooterConstants;
+import frc.robot.commands.Intake.IntakeControlCommand;
+import frc.robot.commands.Shooter.SetShooterAngle;
+import frc.robot.commands.swervedrive.drivebase.AbsoluteDriveAdv;
+import frc.robot.subsystems.ClimbSubsystem;
+import frc.robot.subsystems.IntakeSubsystem;
+import frc.robot.subsystems.ShooterAngleSubsystem;
+import frc.robot.subsystems.ShooterSubsystem;
+import frc.robot.subsystems.swervedrive.SwerveSubsystem;
+import java.io.File;
 
-import edu.wpi.first.wpilibj2.command.InstantCommand;
-import edu.wpi.first.wpilibj2.command.SequentialCommandGroup;
-import edu.wpi.first.wpilibj2.command.SwerveControllerCommand;
-import frc.robot.Constants.AutoConstants;
-import frc.robot.Constants.DriveConstants;
+import com.fasterxml.jackson.databind.node.ShortNode;
 
 /**
- * This class is where the bulk of the robot should be declared. Since Command-based is a
- * "declarative" paradigm, very little robot logic should actually be handled in the {@link Robot}
- * periodic methods (other than the scheduler calls). Instead, the structure of the robot (including
- * subsystems, commands, and trigger mappings) should be declared here.
+ * This class is where the bulk of the robot should be declared. Since Command-based is a "declarative" paradigm, very
+ * little robot logic should actually be handled in the {@link Robot} periodic methods (other than the scheduler calls).
+ * Instead, the structure of the robot (including subsystems, commands, and trigger mappings) should be declared here.
  */
-public class RobotContainer {
+public class RobotContainer
+{
+
   // The robot's subsystems and commands are defined here...
-  private final SwerveSubsystem swerveSubsystem = new SwerveSubsystem();
-  private final IntakeSubsystem intakSubsystem = new IntakeSubsystem();
+  private final SwerveSubsystem drivebase = new SwerveSubsystem(new File(Filesystem.getDeployDirectory(),
+                                                                         "swerve/neo"));
+  public static boolean shooterRunning = false;
+  public static boolean intaking = false;
+  public Thread shooterThread = new Thread();
+  private final IntakeSubsystem intakeSubsystem = new IntakeSubsystem();
+  private final static ShooterSubsystem shooterSubsystem = new ShooterSubsystem();
+  private final ClimbSubsystem climbSubsystem = new ClimbSubsystem();
+  private final ShooterAngleSubsystem shooterAngleSubsystem = new ShooterAngleSubsystem();
+//  private final SetShooterAngle setShooterAngle;
 
-//  private final Joystick driverJoystick = new Joystick(OIConstants.kDriverControllerPort);
+  // Replace with CommandPS4Controller or CommandJoystick if needed
+  final CommandXboxController driverXbox = new CommandXboxController(0);
+  final Joystick joystick = new Joystick(3);
+  final CommandXboxController driverTwo = new CommandXboxController(1);
 
-  private final Joystick driverJoystick = new Joystick(OIConstants.kDriverControllerPort);
-  private final JoystickButton button1 = new JoystickButton(driverJoystick, 1),
-                 button2 = new JoystickButton(driverJoystick, 2),
-                 button3 = new JoystickButton(driverJoystick, 3),
-                 button4 = new JoystickButton(driverJoystick, 4),
-                 button5 = new JoystickButton(driverJoystick, 5),
-                 button6 = new JoystickButton(driverJoystick, 6),
-                 button7 = new JoystickButton(driverJoystick, 7),
-                 button8 = new JoystickButton(driverJoystick, 8);
-
-  private final Joystick mechanismJoystick = new Joystick(OIConstants.kMechanismControllerPort);
-  private final JoystickButton button11 = new JoystickButton(mechanismJoystick, 1),
-                 button12 = new JoystickButton(mechanismJoystick, 2),
-                 button13 = new JoystickButton(mechanismJoystick, 3),
-                 button14 = new JoystickButton(mechanismJoystick, 4),
-                 button15 = new JoystickButton(mechanismJoystick, 5),
-                 button16 = new JoystickButton(mechanismJoystick, 6),
-                 button17 = new JoystickButton(mechanismJoystick, 7),
-                 button18 = new JoystickButton(mechanismJoystick, 8);
-
-  private final PS4Controller driverController = new PS4Controller(OIConstants.kDriverControllerPort);
-  private final PS4Controller mechanismController = new PS4Controller(OIConstants.kDriverControllerPort);
-                             
-    /** The container for the robot. Contains subsystems, OI devices, and commands. */
-  public RobotContainer() {
-
-    swerveSubsystem.setDefaultCommand(new SwerveJoystickCmd(
-                    swerveSubsystem, 
-                    () -> -driverController.getRawAxis(OIConstants.kDriverYAxis),
-                    () -> driverController.getRawAxis(OIConstants.kDriverXAxis),
-                    () -> driverController.getRawAxis(OIConstants.kDriverRotAxis),
-                    () -> !driverController.getRawButton(OIConstants.kDriverFieldOrientedButtionIndex)));
-
-    configureButtonBindings();
-
+  /**
+   * The container for the robot. Contains subsystems, OI devices, and commands.
+   */
+  public RobotContainer()
+  {
     // Configure the trigger bindings
     configureBindings();
+
+    AbsoluteDriveAdv closedAbsoluteDriveAdv = new AbsoluteDriveAdv(drivebase,
+                                                                   () -> -MathUtil.applyDeadband(driverXbox.getLeftY(),
+                                                                                                OperatorConstants.LEFT_Y_DEADBAND),
+                                                                   () -> -MathUtil.applyDeadband(driverXbox.getLeftX(),
+                                                                                                OperatorConstants.LEFT_X_DEADBAND),
+                                                                   () -> -MathUtil.applyDeadband(driverXbox.getRightX(),
+                                                                                                OperatorConstants.RIGHT_X_DEADBAND),
+                                                                   driverXbox.getHID()::getYButtonPressed,
+                                                                   driverXbox.getHID()::getAButtonPressed,
+                                                                   driverXbox.getHID()::getXButtonPressed,
+                                                                   driverXbox.getHID()::getBButtonPressed);
+
+    // Applies deadbands and inverts controls because joysticks
+    // are back-right positive while robot
+    // controls are front-left positive
+    // left stick controls translation
+    // right stick controls the desired angle NOT angular rotation
+    Command driveFieldOrientedDirectAngle = drivebase.driveCommand(
+        () -> MathUtil.applyDeadband(driverXbox.getLeftY(), OperatorConstants.LEFT_Y_DEADBAND),
+        () -> MathUtil.applyDeadband(driverXbox.getLeftX(), OperatorConstants.LEFT_X_DEADBAND),
+        () -> MathUtil.applyDeadband(driverXbox.getRightX(), OperatorConstants.RIGHT_X_DEADBAND),
+        () -> 1-2 * Math.abs(MathUtil.applyDeadband(driverXbox.getRightX(), OperatorConstants.RIGHT_Y_DEADBAND)));
+
+    // Applies deadbands and inverts controls because joysticks
+    // are back-right positive while robot
+    // controls are front-left positive
+    // left stick controls translation
+    // right stick controls the angular velocity of the robot
+    Command driveFieldOrientedAnglularVelocity = drivebase.driveCommand(
+        () -> MathUtil.applyDeadband(driverXbox.getLeftY(), OperatorConstants.LEFT_Y_DEADBAND),
+        () -> MathUtil.applyDeadband(driverXbox.getLeftX(), OperatorConstants.LEFT_X_DEADBAND),
+        () -> driverXbox.getRightX());
+
+    Command driveFieldOrientedDirectAngleSim = drivebase.simDriveCommand(
+        () -> MathUtil.applyDeadband(driverXbox.getLeftY(), OperatorConstants.LEFT_Y_DEADBAND),
+        () -> MathUtil.applyDeadband(driverXbox.getLeftX(), OperatorConstants.LEFT_X_DEADBAND),
+        () -> driverXbox.getRawAxis(2));
+
+        
+    drivebase.setDefaultCommand(
+        !RobotBase.isSimulation() ? driveFieldOrientedAnglularVelocity : driveFieldOrientedDirectAngleSim);
   }
 
-  public void configureButtonBindings(){
-    if(driverController.getSquareButtonPressed()){
-      
-    }
-         
-    new JoystickButton(driverJoystick, 2).whenPressed(() -> swerveSubsystem.zeroHeading());
-    new JoystickButton(mechanismJoystick, 3);
+  private void configureButtonBindings(){
+
   }
+
   /**
    * Use this method to define your trigger->command mappings. Triggers can be created via the
-   * {@link Trigger#Trigger(java.util.function.BooleanSupplier)} constructor with an arbitrary
-   * predicate, or via the named factories in {@link
-   * edu.wpi.first.wpilibj2.command.button.CommandGenericHID}'s subclasses for {@link
-   * CommandXboxController Xbox}/{@link edu.wpi.first.wpilibj2.command.button.CommandPS4Controller
-   * PS4} controllers or {@link edu.wpi.first.wpilibj2.command.button.CommandJoystick Flight
-   * joysticks}.
+   * {@link Trigger#Trigger(java.util.function.BooleanSupplier)} constructor with an arbitrary predicate, or via the
+   * named factories in {@link edu.wpi.first.wpilibj2.command.button.CommandGenericHID}'s subclasses for
+   * {@link CommandXboxController Xbox}/{@link edu.wpi.first.wpilibj2.command.button.CommandPS4Controller PS4}
+   * controllers or {@link edu.wpi.first.wpilibj2.command.button.CommandJoystick Flight joysticks}.
    */
-  private void configureBindings() {
+  private void configureBindings()
+  {
     // Schedule `ExampleCommand` when `exampleCondition` changes to `true`
+
+    driverXbox.a().onTrue((Commands.runOnce(drivebase::zeroGyro)));
+    driverXbox.x().onTrue(Commands.runOnce(drivebase::addFakeVisionReading));
+    // driverXbox.b().whileTrue(
+    //     Commands.deferredProxy(() -> drivebase.driveToPose(
+    //                                new Pose2d(new Translation2d(4, 4), Rotation2d.fromDegrees(0)))
+    //                           ));
+    // driverXbox.x().whileTrue(Commands.runOnce(drivebase::lock, drivebase).repeatedly());
+
+    driverXbox.a().toggleOnTrue(Commands.runOnce(() -> {
+      intakeSubsystem.intakeOn();
+    }));
+    driverXbox.a().toggleOnFalse(Commands.runOnce(intakeSubsystem::intakeOff));
+    driverXbox.b().toggleOnTrue(Commands.runOnce(intakeSubsystem::intakeReverse));
+    driverXbox.b().toggleOnFalse(Commands.runOnce(intakeSubsystem::intakeOff));
+    driverXbox.leftBumper().toggleOnTrue(Commands.runOnce(intakeSubsystem::intakeReverse));
+    driverXbox.leftBumper().toggleOnFalse(Commands.runOnce(intakeSubsystem::intakeOff));
+    driverTwo.b().toggleOnTrue(Commands.runOnce(() -> {
+      shooterSubsystem.shooterOff();
+    }));
+    driverTwo.a().toggleOnTrue(Commands.runOnce(() -> {
+      shooterSubsystem.shooterOn(ShooterConstants.SHOOTER_SPEAKER_POWER);
+      // setShooterAngle.crudeRunToPosition(100);
+    }));
+    driverTwo.y().toggleOnTrue(Commands.runOnce(() -> {
+      shooterSubsystem.shooterOn(ShooterConstants.SHOOTER_AMP_POWER);
+      // setShooterAngle.crudeRunToPosition(100);
+    }));
+    driverTwo.rightTrigger(0).onTrue(Commands.runOnce(() -> {
+      shooterSubsystem.shooterOn(driverTwo.getRightTriggerAxis());
+    }));
+    driverTwo.rightTrigger().onFalse(Commands.runOnce(() -> {
+      // shooterSubsystem.shooterOff();
+      shooterSubsystem.shooterOn(driverTwo.getRightTriggerAxis());
+
+    }));
+    driverTwo.povUp().toggleOnTrue(Commands.runOnce(() -> {
+      climbSubsystem.climbUp();
+    }));
+    driverTwo.povUp().toggleOnFalse(Commands.runOnce(() -> {
+      climbSubsystem.climbOff();
+    }));
+    driverTwo.povDown().toggleOnTrue(Commands.runOnce(() -> {
+      climbSubsystem.climbOn();
+    }));
+    driverTwo.povDown().toggleOnFalse(Commands.runOnce(() -> {
+      climbSubsystem.climbOff();
+    }));
+    driverTwo.a().toggleOnTrue(Commands.runOnce(() -> {
+      new SetShooterAngle(shooterAngleSubsystem, ShooterConstants.SHOOTER_ANGLE_SPEAKER);
+    }));
+    driverTwo.povLeft().toggleOnTrue(Commands.runOnce(() -> {
+      // new SetShooterAngle(shooterAngleSubsystem, ShooterConstants.SHOOTER_ANGLE_SPEAKER);
+    }));
+    driverTwo.povLeft().toggleOnFalse(Commands.runOnce(() -> {
+      // new SetShooterAngle(shooterAngleSubsystem, ShooterConstants.SHOOTER_ANGLE_AMP);
+    }));
+    driverTwo.povRight().toggleOnTrue(Commands.runOnce(() -> {
+      // new SetShooterAngle(shooterAngleSubsystem, ShooterConstants.SHOOTER_ANGLE_SPEAKER);
+    }));
+    driverTwo.povRight().toggleOnFalse(Commands.runOnce(() -> {
+      // new SetShooterAngle(shooterAngleSubsystem, ShooterConstants.SHOOTER_ANGLE_SPEAKER);
+    }));
   }
 
   /**
@@ -115,43 +190,19 @@ public class RobotContainer {
    *
    * @return the command to run in autonomous
    */
-  public Command getAutonomousCommand() {
-    // 1. Create trajectory settings
-    TrajectoryConfig trajectoryConfig = new TrajectoryConfig(
-      AutoConstants.kMaxSpeedMetersPerSecond,
-      AutoConstants.kMaxAccelerationMetersPerSecondSquared)
-              .setKinematics(DriveConstants.kDriveKinematics);
+  public Command getAutonomousCommand()
+  {
+    // An example command will be run in autonomous
+    return drivebase.getAutonomousCommand("New Auto");
+  }
 
-    // 2. Generate trajectory
-    Trajectory trajectory = TrajectoryGenerator.generateTrajectory(
-      new Pose2d(0, 0, new Rotation2d(0)),
-      List.of(
-              new Translation2d(1, 0),
-              new Translation2d(1, -1)),
-      new Pose2d(2, -1, Rotation2d.fromDegrees(180)),
-      trajectoryConfig);
+  public void setDriveMode()
+  {
+    //drivebase.setDefaultCommand();
+  }
 
-    // 3. Define PID controllers for tracking trajectory
-    PIDController xController = new PIDController(AutoConstants.kPXController, 0, 0);
-    PIDController yController = new PIDController(AutoConstants.kPYController, 0, 0);
-    ProfiledPIDController thetaController = new ProfiledPIDController(
-      AutoConstants.kPThetaController, 0, 0, AutoConstants.kThetaControllerConstraints);
-    thetaController.enableContinuousInput(-Math.PI, Math.PI);
-
-    // 4. Construct command to follow trajectory
-    SwerveControllerCommand swerveControllerCommand = new SwerveControllerCommand(
-      trajectory, 
-      swerveSubsystem::getPose, 
-      DriveConstants.kDriveKinematics, 
-      xController, 
-      yController, 
-      thetaController, 
-      swerveSubsystem::setModuleStates, 
-      swerveSubsystem);
-
-    // 5. Add some init and wrap-up, and return everything
-    return new SequentialCommandGroup(
-      new InstantCommand(() -> swerveSubsystem.resetOdometry(trajectory.getInitialPose())),
-      swerveControllerCommand,
-      new InstantCommand(() -> swerveSubsystem.stopModules()));  }
+  public void setMotorBrake(boolean brake)
+  {
+    drivebase.setMotorBrake(brake);
+  }
 }

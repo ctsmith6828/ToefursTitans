@@ -1,53 +1,33 @@
-// Copyright (c) FIRST and other WPILib contributors.
-// Open Source Software; you can modify and/or share it under the terms of
-// the WPILib BSD license file in the root directory of this project.
-
 package frc.robot.subsystems;
 
 import com.revrobotics.CANSparkMax;
+import com.revrobotics.CANSparkLowLevel.MotorType;
 
-import edu.wpi.first.wpilibj2.command.CommandBase;
-import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import frc.robot.Constants.IntakeConstants;
 
-public class IntakeSubsystem extends SubsystemBase {
+public class IntakeSubsystem {
 
-  // private final CANSparkMax intakeFront;
-  
+    private final CANSparkMax intakeFront = new CANSparkMax(IntakeConstants.m_INTAKE_FRONT_CAN_ID, MotorType.kBrushless);
+    private final CANSparkMax intakeBack = new CANSparkMax(IntakeConstants.m_INTAKE_BACK_CAN_ID, MotorType.kBrushless);
 
-  /** Creates a new IntakeSubsystem. */
-  public IntakeSubsystem() {}
+    public IntakeSubsystem(){
+        intakeFront.setInverted(false);
+        intakeBack.setInverted(true);
+    }
 
-  /**
-   * Example command factory method.
-   *
-   * @return a command
-   */
-  public CommandBase intakeMethodCommand() {
-    // Inline construction of command goes here.
-    // Subsystem::RunOnce implicitly requires `this` subsystem.
-    return runOnce(
-        () -> {
-          /* one-time action goes here */
-        });
-  }
+    public void intakeOn(){
+        intakeFront.set(IntakeConstants.INTAKE_POWER);
+        intakeBack.set(IntakeConstants.INTAKE_POWER);
+    }
 
-  /**
-   * An example method querying a boolean state of the subsystem (for example, a digital sensor).
-   *
-   * @return value of some boolean subsystem state, such as a digital sensor.
-   */
-  public boolean exampleCondition() {
-    // Query some boolean state, such as a digital sensor.
-    return false;
-  }
+    public void intakeReverse(){
+        intakeFront.set(IntakeConstants.INTAKE_REVERSE_POWER);
+        intakeBack.set(IntakeConstants.INTAKE_REVERSE_POWER);
+    }
+    public void intakeOff(){
+        intakeFront.set(0);
+        intakeBack.set(0);
+    }
 
-  @Override
-  public void periodic() {
-    // This method will be called once per scheduler run
-  }
-
-  @Override
-  public void simulationPeriodic() {
-    // This method will be called once per scheduler run during simulation
-  }
+    
 }
